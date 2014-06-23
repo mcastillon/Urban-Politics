@@ -1,12 +1,12 @@
 rm(list=ls())
 
 #### file containing density measures for all districts from American Fact Finder
-cd_density <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/cd_density.csv")
+cd_density <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/data/cd_density.csv")
 #### file containing congressional voting ideal point measures
 #### courtesy of Simon Jackman (http://jackman.stanford.edu/blog/) 3/29/14
 ### one of the things to keep in mind is that Jackman's ideal points are only estimates,
 ### and there are fairly wide margins of error
-estimates <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/estimates.csv")
+estimates <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/data/estimates.csv")
 
 colnames(cd_density) <- tolower(colnames(cd_density))
 colnames(cd_density)
@@ -125,7 +125,7 @@ arrange(d_fitted, .stdresid)[1:14,]
 
 ### So let's look at Urban vs Rural numbers
 
-cd_urban <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/cd_urban.csv")
+cd_urban <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/data/cd_urban.csv")
 
 dense_ideal_urb <- merge(dense_ideal, cd_urban,
 				 by.x="target.geo.id", by.y="Id",
@@ -138,8 +138,32 @@ attach(dense_ideal_urb)
 ### again we have a significant linear model when looking at idealPoint vs pct_urban
 urb_lm <- lm(idealPoint ~ pct_urban) 
 summary(urb_lm)
+### again we have a significant linear model when looking at idealPoint vs pct_urban
+urb_lm <- lm(idealPoint ~ pct_urban) 
+summary(urb_lm)
 
-### but again we fail the jarque bera test
+### but again we should take into account by party
 plot(pct_urban, idealPoint)
 abline(urb_lm)
-jarque.test(pct_urban)
+
+ggplot(data=dense_ideal_urb, aes(pct_urban, idealPoint, colour=factor(party))) +
+geom_point() + geom_smooth() + scale_color_manual(values=alpha(c("blue", "red"), .4))
+
+### it looks like we have pct_urban only affecting democrats, but we don't even have
+### a good estimate for the intercept
+urb_lm_party <- lmList(data=dense_ideal_urb, idealPoint~pct_urban | factor(party))
+summary(urb_lm_party)
+
+### we should incorporate log_dense to see if we are actually improving on the
+### previous model
+urb_log_lm_party <- lmList(data=dense_ideal_urb, idealPoint~pct_urban+log_dense | factor(party))
+summary(urb_log_lm_party)
+#### Using both pct_urban and log_dense only yields log_dense as a significant predictor
+#### for Democrats
+
+### When we add an interaction term, none of the predictors are significant
+urb_log_int_lm_party <- lmList(data=dense_ideal_urb, idealPoint~pct_urban*log_dense | factor(party))
+summary(urb_log_int_lm_party)
+
+### the original model looking only at log_dense appears to be the best model actually
+summary(dense_lm_log_party)
