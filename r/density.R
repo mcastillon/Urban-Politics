@@ -1,3 +1,8 @@
+######
+### The goal of this project is to examine voting patterns of Congressman, and its
+### relationship with their district's population density/urban vs rural nature
+######
+
 rm(list=ls())
 
 #### file containing density measures for all districts from American Fact Finder
@@ -66,6 +71,13 @@ geom_point() + geom_smooth() + scale_color_manual(values=alpha(c("blue", "red"),
 library(lme4)
 dense_lm_log_party <- lmList(data=dense_ideal, idealPoint~log_dense | factor(party))
 summary(dense_lm_log_party)
+
+### let's take a closer look at Republicans
+r_fitted <- fortify(dense_lm_log_party$R)
+r_fitted$label <- rownames(r_fitted)
+tail(arrange(r_fitted, log_dense))
+### Michael Grimm of NY-11 (Staten Island) and Dana Rohrabacher of CA-48 (Orange County)
+### are the Congressmen in the 2 densest districts controlled by the GOP
 
 ### let's take a closer look at democrats
 d_fitted <- fortify(dense_lm_log_party$D)
@@ -167,3 +179,10 @@ summary(urb_log_int_lm_party)
 
 ### the original model looking only at log_dense appears to be the best model actually
 summary(dense_lm_log_party)
+
+#### So what's the takeaway of all this? If one were to confuse correlation with causation,
+#### they would automatically suggest the Democrats invest more resources into taking over
+#### districts like TX-7 where we find the solid conservative John Culberson in the dense,
+#### but wealthy, white suburbs of Houston. One might also suggest more heavily protecting
+#### districts like MA-2, where we find solid progressive Jim McGovern in relatively rural,
+#### but Progressive Central Massachussetts.
