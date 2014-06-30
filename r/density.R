@@ -1,5 +1,5 @@
 ######
-### The goal of this project is to examine voting patterns of Congressman, and its
+### The goal of this project is to examine voting patterns of Congressmen, and its
 ### relationship with their district's population density/urban vs rural nature
 ######
 
