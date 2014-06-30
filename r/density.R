@@ -119,7 +119,7 @@ arrange(d_fitted, .stdresid)[1:14,]
 
 ### The representative who is most liberal relative to their district's density is Mark Pocan of WI-2 (also the most liberal representative overall)
 ### This district incorporates the very progressive college town of Madison
-### while being  the 43rd least dense Democrat-controlled district
+### while being the 43rd least dense Democrat-controlled district
 
 ### Perhaps most interesting though is Raul Grijalva of AZ-3.
 ### Incorporating a large swath of Southern Arizona, this district is the 9th least
@@ -180,9 +180,21 @@ summary(urb_log_int_lm_party)
 ### the original model looking only at log_dense appears to be the best model actually
 summary(dense_lm_log_party)
 
-#### So what's the takeaway of all this? If one were to confuse correlation with causation,
-#### they would automatically suggest the Democrats invest more resources into taking over
-#### districts like TX-7 where we find the solid conservative John Culberson in the dense,
-#### but wealthy, white suburbs of Houston. One might also suggest more heavily protecting
-#### districts like MA-2, where we find solid progressive Jim McGovern in relatively rural,
-#### but Progressive Central Massachussetts.
+#### At the end of the day, there appears to be a reasonably strong relationship between the
+#### density of a Democratic-controlled district and the Congressperson's voting patterns.
+
+#### So what's the takeaway of all this? Let's say a Democratic political strategist is
+#### trying to determine how to allocate election resources for the upcoming 2014 midterm
+#### elections. Their goal is to "maximize" the progressive ideology in the next Congress.
+#### If one were to confuse correlation with causation, they would automatically suggest
+#### that the strategist invest more resources into taking over districts like TX-7 where
+#### we find the solid conservative John Culberson in the dense, but wealthy, white
+#### suburbs of Houston (Cook PVI R+14, Culberson won in 2012 by more than 20 points).
+#### One might also suggest more heavily protecting districts like MA-2, where we find a
+#### solid liberal in Jim McGovern in relatively rural,but progressive Central
+#### Massachussetts (Cook PVI D+10, McGovern ran uncontested). Or maybe one would propose
+#### increasing the population density of Democratic districts (infeasible). Obviously,
+#### population density does not tell the whole story.
+
+#### For next steps in this project, I would like to incorporate Cook PVI to see the
+#### the relationship between the ideology of a district and the district's density.
