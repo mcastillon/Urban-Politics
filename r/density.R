@@ -5,6 +5,8 @@
 
 rm(list=ls())
 
+options(stringsAsFactors = F)
+
 #### file containing density measures for all districts from American Fact Finder
 cd_density <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/data/cd_density.csv")
 #### file containing congressional voting ideal point measures
@@ -19,8 +21,8 @@ colnames(estimates)
 
 #### merge datasets together
 dense_ideal <- merge(cd_density, estimates,
-			   by.x=c("geography", "district"), by.y=c("state", "district"),
-			   all=T)
+            			   by.x=c("geography", "district"), by.y=c("state", "district"),
+			               all=T)
 is.na(dense_ideal)
 dense_ideal$icpsr.id[is.na(dense_ideal$icpsr.id)] <- 0
 dense_ideal[!complete.cases(dense_ideal),]
@@ -33,7 +35,8 @@ rownames(dense_ideal) <- label
 dense_lm <- lm(idealPoint~density.land)
 summary(dense_lm)
 
-##### but when we plot density against the ideal point, the line clearly doesn't fit well based on an eyetest
+#### but when we plot density against the ideal point, the line clearly doesn't fit well
+#### based on an eyetest
 plot(density.land, idealPoint)
 abline(reg=dense_lm)
 
@@ -140,8 +143,8 @@ arrange(d_fitted, .stdresid)[1:14,]
 cd_urban <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/data/cd_urban.csv")
 
 dense_ideal_urb <- merge(dense_ideal, cd_urban,
-				 by.x="target.geo.id", by.y="Id",
-				 all.x=T)
+				                 by.x="target.geo.id", by.y="Id",
+				                 all.x=T)
 dense_ideal_urb <- transform(dense_ideal_urb, pct_urban = Urban / Total)
 
 detach(d_fitted)
@@ -168,7 +171,7 @@ summary(urb_lm_party)
 
 ### we should incorporate log_dense to see if we are actually improving on the
 ### previous model
-urb_log_lm_party <- lmList(data=dense_ideal_urb, idealPoint~pct_urban+log_dense | factor(party))
+urb_log_lm_party <- lmList(data=dense_ideal_urb, idealPoint ~ pct_urban + log_dense | factor(party))
 summary(urb_log_lm_party)
 #### Using both pct_urban and log_dense only yields log_dense as a significant predictor
 #### for Democrats
@@ -177,7 +180,7 @@ summary(urb_log_lm_party)
 urb_log_int_lm_party <- lmList(data=dense_ideal_urb, idealPoint~pct_urban*log_dense | factor(party))
 summary(urb_log_int_lm_party)
 
-### the original model looking only at log_dense appears to be the best model actually
+### the original model looking only at log_dense actually appears to be the best model
 summary(dense_lm_log_party)
 
 #### At the end of the day, there appears to be a reasonably strong relationship between the
@@ -194,7 +197,134 @@ summary(dense_lm_log_party)
 #### solid liberal in Jim McGovern in relatively rural,but progressive Central
 #### Massachussetts (Cook PVI D+10, McGovern ran uncontested). Or maybe one would propose
 #### increasing the population density of Democratic districts (infeasible). Obviously,
-#### population density does not tell the whole story.
+#### population density does not tell the whole story, but it is certainly fascinating
+#### that the relationship exists for Democrats and not for Republicans
 
-#### For next steps in this project, I would like to incorporate Cook PVI to see the
-#### the relationship between the ideology of a district and the district's density.
+#### After reading up on some interesting research by PPIC's Jed Kolko (now at Trulia),
+#### "http://www.ppic.org/content/pubs/report/R_211JKR.pdf", I came across an interesting
+#### metric known as "weighted population density". Essentially, it is a weighted average
+#### of the population density of all census tracts within district. This metrics accounts
+#### for the issues that we see in districts like AZ-3 where the population is
+#### concentrated in smaller areas even though the district's total area is quite large.
+
+#### Let's calculate weighted population density for each congressional district!
+
+cd_tract_density <- read.csv("C:/Users/mcast_000/Documents/Github/Urban Politics/data/cd_tract_density.csv")
+colnames(cd_tract_density) <- tolower(colnames(cd_tract_density))
+
+#### We want the census tracts. The target geo id should lead us to the these
+count(nchar(cd_tract_density$target.geo.id))
+#### 13 characters is congressional districts, 16 for counties, 22 for tracts
+
+tract_density <- subset(cd_tract_density, nchar(target.geo.id)==22)
+#### create a congressional district variable
+tract_density <- transform(tract_density, cd = substr(target.geo.id, 1, 13))
+
+### looks like we have some water only tracts
+count(tract_density$density.land=="(X)")
+
+tract_density <- subset(tract_density, density.land!="(X)")
+tract_density$density.land <- as.numeric(tract_density$density.land)
+
+#### We need to create a congressional district variable for merging, but the 2nd and 3rd
+#### characters of the target geo id are different between files
+head(tract_density$cd)
+head(dense_ideal_urb$target.geo.id)
+
+tract_density <- transform(tract_density, cd = sub("11", "00", cd))
+
+cd_weighted_density <- ddply(tract_density, .(cd), summarize,
+                             weighted.population.density = sum(population*density.land) / sum(population))
+
+dense_ideal_urb_weight <- merge(dense_ideal_urb, cd_weighted_density,
+                                by.x="target.geo.id", by.y="cd", all.x=T)
+
+#### Now let's see if we improve the model at all with the weighted density metrics
+detach(dense_ideal_urb)
+attach(dense_ideal_urb_weight)
+
+rownames(dense_ideal_urb_weight) <- label
+
+weight_lm <- lm(idealPoint ~ weighted.population.density)
+summary(weight_lm)
+
+#### so far looks good, but let's plot
+plot(weighted.population.density, idealPoint)
+abline(weight_lm)
+
+#### We should log transform the weighted population density
+dense_ideal_urb_weight <- transform(dense_ideal_urb_weight,
+                                    log.weighted.density = log(weighted.population.density))
+detach(dense_ideal_urb_weight)
+attach(dense_ideal_urb_weight)
+
+hist(weighted.population.density)
+hist(log.weighted.density)
+
+#### This model looks like it performs quite well
+weight_log_lm <- lm(idealPoint ~ log.weighted.density)
+summary(weight_log_lm)
+
+#### But we should still account for political party
+plot(log.weighted.density, idealPoint)
+abline(weight_log_lm)
+
+#### It appears we still have the Democratic-only phenomenon
+ggplot(data=dense_ideal_urb_weight, aes(log.weighted.density, idealPoint, colour=factor(party))) +
+geom_point() + geom_smooth() + scale_color_manual(values=alpha(c("blue", "red"), .4))
+
+weight_lm_party <- lmList(data=dense_ideal_urb_weight,
+                          idealPoint ~ log.weighted.density | factor(party))
+summary(weight_lm_party)
+
+#### compared with the log population density model
+summary(dense_lm_log_party)
+
+#### Based off of the residual standard errors of the models, it appears the weighted
+#### density model performs better. We even have a GOP density coefficient that is almost
+#### statistically significant
+
+#### So let's take another close look at Dems
+
+d_weight_fitted <- fortify(weight_lm_party$D)
+ggplot(data=d_weight_fitted, aes(log.weighted.density, idealPoint)) +
+  geom_point() + geom_smooth()
+
+detach(dense_ideal_urb_weight)
+attach(d_weight_fitted)
+#### which democrats' voting patterns are least representative of their district's
+#### weighted density?
+d_weight_fitted <- transform(d_weight_fitted, extreme = ifelse(abs(.stdresid)>1.5,1,0))
+d_weight_fitted$label <- rownames(d_weight_fitted)
+ggplot(data=d_weight_fitted, aes(log.weighted.density, idealPoint)) +
+  geom_point() + geom_smooth() +
+  geom_text(data=d_weight_fitted[d_weight_fitted$extreme == 1,],
+            aes(label=label, size=abs(.stdresid), angle=45)) +
+  scale_size(range=c(3,5))
+
+detach(d_weight_fitted)
+#### Let's see how the "extremes" compare
+extreme_comp <- merge(d_weight_fitted, d_fitted, 
+                      by="label", all=T, suffixes=c("_weight", "_regular"))
+#### 12 extreme in old only, 9 in weighted only
+count(extreme_comp[,c("extreme_weight", "extreme_regular")])
+
+extreme_reg_only <- subset(extreme_comp, extreme_weight==0 & extreme_regular==1)
+extreme_reg_only
+#### These representatives will be in districts that have weighted population densities
+#### that are more in line with their ideology than their regular population densities.
+#### The representatives that are no longer extreme examples include:
+#### Grijala - AZ-3 (liberal in large swath of Arizona desert)
+#### Farr - CA-20 (liberal in Central Coast of California which has uninhabited areas, but densish Santa Cruz)
+#### McIntyre - NC-7 (moderate in the southern part of North Carolina which is relatively not dense throughout)
+
+extreme_weight_only <- subset(extreme_comp, extreme_weight==1 & extreme_regular==0)
+extreme_weight_only
+#### Here we have representatives whose ideologies match their population density, but not
+#### their weighted population density. They include:
+#### Cuellar - TX-28 (Moderate in a large district with population concentrated largely in San Antonio)
+#### Garcia - FL-26 (Moderate with a fair portion of Miami)
+#### Lewis - GA-5 (Liberal in sprawling Atlanta)
+
+#### One definite takeaway is that population density can be a slightly misleading
+#### statistic. Weighted population density better takes into account a district's makeup
