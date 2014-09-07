@@ -19,14 +19,21 @@ colnames(cd_density) <- tolower(colnames(cd_density))
 colnames(cd_density)
 colnames(estimates)
 
+head(estimates)
+head(cd_density)
+
+cd_density <- transform(cd_density, state = state.abb[match(geography, state.name)])
+
 #### merge datasets together
 dense_ideal <- merge(cd_density, estimates,
-            			   by.x=c("geography", "district"), by.y=c("state", "district"),
+            			   by=c("state", "district"),
 			               all=T)
 is.na(dense_ideal)
 dense_ideal$icpsr.id[is.na(dense_ideal$icpsr.id)] <- 0
 dense_ideal[!complete.cases(dense_ideal),]
-dense_ideal[396,"gender"] <- "M"
+### only now Senator Ed Markey is missing a district. Safe to ignore  
+
+dense_ideal <- subset(dense_ideal, lastnm!="Markey")
 
 attach(dense_ideal)
 rownames(dense_ideal) <- label
@@ -75,6 +82,8 @@ library(lme4)
 dense_lm_log_party <- lmList(data=dense_ideal, idealPoint~log_dense | factor(party))
 summary(dense_lm_log_party)
 
+library(plyr)
+
 ### let's take a closer look at Republicans
 r_fitted <- fortify(dense_lm_log_party$R)
 r_fitted$label <- rownames(r_fitted)
@@ -97,7 +106,6 @@ geom_point() + geom_smooth() +
 geom_text(data=d_fitted[d_fitted$extreme == 1,], aes(label=label, size=abs(.stdresid), angle=45)) +
 scale_size(range=c(3,5))
 
-library(plyr)
 arrange(d_fitted, idealPoint)
 arrange(d_fitted, log_dense)
 
@@ -110,12 +118,12 @@ arrange(d_fitted, log_dense)
 ### Let's take a look at the Democrats who are most conservative relative to what you would
 ### expect from their district's density.
 arrange(d_fitted, desc(.stdresid))[1:14,]
-### The representative who is most conservative relative to their district's density is Jim Matheson of UT-4 (also the most conservative Democrat overall)
+### The representative who is 2nd most conservative relative to their district's density is Jim Matheson of UT-4 (also the most conservative Democrat overall)
 ### This district is fairly dense (contains a large part of Salt Lake City), but has a Cook PVI of R+14. (http://en.wikipedia.org/wiki/Utah's_4th_congressional_district)
 
 ### A fascinating result is Kyrsten Sinema of AZ-9. The district is largely based in dense Phoenix,
 ### and Sinema describes herself as progressive (http://kyrstensinema.com/record/). But her voting record
-### places her as the 11th most conservative Democrat in the House.
+### places her as the 10th most conservative Democrat in the House.
 
 ### How about Democrats who are most liberal relative to their district's density?
 arrange(d_fitted, .stdresid)[1:14,]
@@ -127,7 +135,6 @@ arrange(d_fitted, .stdresid)[1:14,]
 ### Perhaps most interesting though is Raul Grijalva of AZ-3.
 ### Incorporating a large swath of Southern Arizona, this district is the 9th least
 ### dense district controlled by a Democrat, yet Grijalva is more progressive
-### than all but 41 representatives. But upon observing the district's map (http://upload.wikimedia.org/wikipedia/commons/c/c8/Arizona_3rd_Congressional_District.png)
 ### we see that "land density" does not paint the whole picture. Much of the population
 ### for AZ-3 is concentrated in Tucson, the second largest city in Arizona. Arizona
 ### has a history of creating strange districts (see the former AZ-2 http://upload.wikimedia.org/wikipedia/commons/e/e1/AZ-districts-109-02.gif).
@@ -150,9 +157,6 @@ dense_ideal_urb <- transform(dense_ideal_urb, pct_urban = Urban / Total)
 detach(d_fitted)
 attach(dense_ideal_urb)
 
-### again we have a significant linear model when looking at idealPoint vs pct_urban
-urb_lm <- lm(idealPoint ~ pct_urban) 
-summary(urb_lm)
 ### again we have a significant linear model when looking at idealPoint vs pct_urban
 urb_lm <- lm(idealPoint ~ pct_urban) 
 summary(urb_lm)
@@ -194,7 +198,7 @@ summary(dense_lm_log_party)
 #### we find the solid conservative John Culberson in the dense, but wealthy, white
 #### suburbs of Houston (Cook PVI R+14, Culberson won in 2012 by more than 20 points).
 #### One might also suggest more heavily protecting districts like MA-2, where we find a
-#### solid liberal in Jim McGovern in relatively rural,but progressive Central
+#### solid liberal in Jim McGovern in relatively rural, but progressive Central
 #### Massachussetts (Cook PVI D+10, McGovern ran uncontested). Or maybe one would propose
 #### increasing the population density of Democratic districts (infeasible). Obviously,
 #### population density does not tell the whole story, but it is certainly fascinating
@@ -281,7 +285,7 @@ summary(weight_lm_party)
 summary(dense_lm_log_party)
 
 #### Based off of the residual standard errors of the models, it appears the weighted
-#### density model performs better. We even have a GOP density coefficient that is almost
+#### density model performs better. We even have a GOP density coefficient that is
 #### statistically significant
 
 #### So let's take another close look at Dems
@@ -304,27 +308,59 @@ ggplot(data=d_weight_fitted, aes(log.weighted.density, idealPoint)) +
 
 detach(d_weight_fitted)
 #### Let's see how the "extremes" compare
-extreme_comp <- merge(d_weight_fitted, d_fitted, 
+extreme_comp_d <- merge(d_weight_fitted, d_fitted, 
                       by="label", all=T, suffixes=c("_weight", "_regular"))
-#### 12 extreme in old only, 9 in weighted only
-count(extreme_comp[,c("extreme_weight", "extreme_regular")])
+#### 7 extreme in old only, 9 in weighted only
+count(extreme_comp_d[,c("extreme_weight", "extreme_regular")])
 
-extreme_reg_only <- subset(extreme_comp, extreme_weight==0 & extreme_regular==1)
-extreme_reg_only
+extreme_reg_only_d <- subset(extreme_comp_d, extreme_weight==0 & extreme_regular==1)
+arrange(extreme_reg_only_d, .stdresid_regular)
 #### These representatives will be in districts that have weighted population densities
 #### that are more in line with their ideology than their regular population densities.
 #### The representatives that are no longer extreme examples include:
-#### Grijala - AZ-3 (liberal in large swath of Arizona desert)
-#### Farr - CA-20 (liberal in Central Coast of California which has uninhabited areas, but densish Santa Cruz)
+#### Grijalva - AZ-3 (liberal in large swath of Arizona desert)
+#### Murphy - FL-18 (Moderate in suburban Miami)
 #### McIntyre - NC-7 (moderate in the southern part of North Carolina which is relatively not dense throughout)
+#### Nadler - NY-10 (very liberal in very dense Manhattan)
 
-extreme_weight_only <- subset(extreme_comp, extreme_weight==1 & extreme_regular==0)
-extreme_weight_only
+extreme_weight_only_d <- subset(extreme_comp_D, extreme_weight==1 & extreme_regular==0)
+arrange(extreme_weight_only_d, .stdresid_weight)
 #### Here we have representatives whose ideologies match their population density, but not
 #### their weighted population density. They include:
 #### Cuellar - TX-28 (Moderate in a large district with population concentrated largely in San Antonio)
-#### Garcia - FL-26 (Moderate with a fair portion of Miami)
+#### Barber - AZ-2 (Moderate with most of district in Tucson, but most area desert)
 #### Lewis - GA-5 (Liberal in sprawling Atlanta)
+#### Pallone - NJ-6 (Progressive in Suburban New Jersey)
 
 #### One definite takeaway is that population density can be a slightly misleading
 #### statistic. Weighted population density better takes into account a district's makeup
+
+#### how about them republicans?
+r_weight_fitted <- fortify(weight_lm_party$R)
+ggplot(data=r_weight_fitted, aes(log.weighted.density, idealPoint)) +
+  geom_point() + geom_smooth()
+
+attach(r_weight_fitted)
+#### which republicans' voting patterns are least representative of their district's
+#### weighted density?
+r_weight_fitted <- transform(r_weight_fitted, extreme = ifelse(abs(.stdresid)>1.5,1,0))
+r_weight_fitted$label <- rownames(r_weight_fitted)
+ggplot(data=r_weight_fitted, aes(log.weighted.density, idealPoint)) +
+  geom_point() + geom_smooth() +
+  geom_text(data=r_weight_fitted[r_weight_fitted$extreme == 1,],
+            aes(label=label, size=abs(.stdresid), angle=45)) +
+  scale_size(range=c(3,5))
+
+detach(r_weight_fitted)
+
+#### I am hesitant to draw many conclusions from the Republican model since the
+#### relationship between density and ideology is less pronounced. However, it is
+#### certainly fascinating that the 2 most moderate Republican congressmen are from 
+#### relatively rural areas (Gibson - NY-19 and Jones - NC-3). These reps are potentially
+#### vulnerable to primary challenges.
+
+#### Also of note, many of the congressmen (Dems and GOP) who are more conservative
+#### relative to their density are from Texas, while many who are more liberal are found
+#### in New York/Jersey. This makes me believe that another variable is necessary to
+#### estimate ideology. Based on what I know about these states demographics I think
+#### educational attainment is an important contributing factor
